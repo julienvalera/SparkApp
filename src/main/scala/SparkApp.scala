@@ -52,7 +52,7 @@ object SparkApp {
       .option("header", "true")
       .schema(csvSchema)
       .csv(
-        "s3a://jvalera-velib-availability/velib-disponibilite-en-temps-reel.csv"
+        spark.conf.get("spark.aws.s3.bucket_uri")
       ))
 
     // Rename columns
@@ -88,7 +88,6 @@ object SparkApp {
           "INSEE_CODE"
         )
     )
-    dfCsvRenamedColumns.show(4)
 
     // Snowflake instance parameters
     val sfOptions = Map(
@@ -98,10 +97,16 @@ object SparkApp {
       "sfPassword" -> spark.conf.get("spark.snowflake.password"),
       "sfDatabase" -> spark.conf.get("spark.snowflake.database"),
       "sfSchema" -> spark.conf.get("spark.snowflake.schema"),
-      "sfWarehouse" -> spark.conf.get("spark.snowflake.warehouse")
+      "sfWarehouse" -> spark.conf.get("spark.snowflake.warehouse"),
     )
 
-    System.out.println(spark.conf.get("spark.snowflake.url"))
+    // Write Dataframe data to Snowflake table
+    dfCsvRenamedColumns.write
+      .format(SNOWFLAKE_SOURCE_NAME)
+      .options(sfOptions)
+      .option("dbtable", spark.conf.get("spark.snowflake.dbtable"))
+      .mode(SaveMode.Overwrite)
+      .save()
 
     spark.stop()
   }
